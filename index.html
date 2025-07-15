@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Deck Assistant (Demo Version for Corsair)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1e1e1e;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.4rem;
+      border-bottom: 1px solid #333;
+    }
+    #chatbox {
+      height: 65vh;
+      overflow-y: auto;
+      padding: 1rem;
+      background: #000;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    .message {
+      margin: 0.5rem 0;
+    }
+    .user {
+      color: #0f0;
+    }
+    .uaacs {
+      color: #0af;
+    }
+    #inputArea {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+    }
+    input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem;
+      border: none;
+      font-size: 1rem;
+      background: #333;
+      color: white;
+    }
+    button {
+      background: #0af;
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>Stream Deck Assistant (Demo Version for Corsair)</header>
+  <div id="chatbox"></div>
+  <div id="inputArea">
+    <input type="text" id="userInput" placeholder="Type or say your command..." />
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="startVoiceRecognition()">🎙️ Speak</button>
+    <button onclick="exportMacro()">⬇️ Export</button>
+  </div>
+
+  <script>
+    const chatbox = document.getElementById('chatbox');
+    let lastMacro = null;
+
+    function appendMessage(sender, text) {
+      const msg = document.createElement('div');
+      msg.classList.add('message', sender);
+      msg.textContent = `${sender === 'user' ? '🧑‍💻 You' : '🤖 Assistant'}: ${text}`;
+      chatbox.appendChild(msg);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function appendJSON(sender, json) {
+      const msg = document.createElement('div');
+      msg.classList.add('message', sender);
+      msg.textContent = `${sender === 'user' ? '🧑‍💻 You' : '🤖 Assistant'}:
+` + JSON.stringify(json, null, 2);
+      chatbox.appendChild(msg);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function sendMessage(textInput) {
+      const input = document.getElementById('userInput');
+      const text = textInput || input.value.trim();
+      if (!text) return;
+
+      appendMessage('user', text);
+      input.value = '';
+
+      setTimeout(() => {
+        const macro = {
+          trigger: extractTrigger(text),
+          actions: extractActions(text)
+        };
+        lastMacro = macro;
+        appendJSON('uaacs', macro);
+      }, 500);
+    }
+
+    function extractTrigger(text) {
+      const match = text.match(/(?:when i say|if i say|triggered by) ['"]?(.*?)['"]?(?:,| then| and|$)/i);
+      return match ? match[1] : "Custom Command";
+    }
+
+    function extractActions(text) {
+      const verbs = ["open", "launch", "switch", "tweet", "mute", "record", "play", "pause", "stop"];
+      const actions = [];
+      verbs.forEach(verb => {
+        const regex = new RegExp(`${verb}[^.,;]+`, 'gi');
+        const matches = text.match(regex);
+        if (matches) actions.push(...matches.map(m => m.trim()));
+      });
+      return actions.length > 0 ? actions : ["Custom action parsed"];
+    }
+
+    function startVoiceRecognition() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = function(event) {
+        const voiceCommand = event.results[0][0].transcript;
+        sendMessage(voiceCommand);
+      };
+
+      recognition.onerror = function(event) {
+        appendMessage('uaacs', 'Voice recognition error: ' + event.error);
+      };
+
+      recognition.start();
+    }
+
+    function exportMacro() {
+      if (!lastMacro) {
+        alert("No macro available to export.");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(lastMacro, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'stream-deck-macro.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
