@@ -69,10 +69,12 @@
     <input type="text" id="userInput" placeholder="Type or say your command..." />
     <button onclick="sendMessage()">Send</button>
     <button onclick="startVoiceRecognition()">🎙️ Speak</button>
+    <button onclick="exportMacro()">💾 Export</button>
   </div>
 
   <script>
     const chatbox = document.getElementById('chatbox');
+    let lastMacro = null;
 
     function appendMessage(sender, text) {
       const msg = document.createElement('div');
@@ -99,6 +101,7 @@
 
         if (!res.ok) throw new Error('GPT request failed.');
         const data = await res.json();
+        lastMacro = data;
         appendMessage('uaacs', JSON.stringify(data, null, 2));
       } catch (err) {
         appendMessage('uaacs', '❌ Error: ' + err.message);
@@ -121,6 +124,20 @@
       };
 
       recognition.start();
+    }
+
+    function exportMacro() {
+      if (!lastMacro) {
+        alert("No macro to export yet.");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(lastMacro, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = (lastMacro.trigger || 'macro') + '_macro.json';
+      link.click();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>
