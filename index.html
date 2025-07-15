@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stream Deck Assistant (Demo Version for Corsair)</title>
+  <title>Stream Deck Assistant (AI-Powered)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -63,18 +63,16 @@
   </style>
 </head>
 <body>
-  <header>Stream Deck Assistant (Demo Version for Corsair)</header>
+  <header>Stream Deck Assistant (AI-Powered)</header>
   <div id="chatbox"></div>
   <div id="inputArea">
     <input type="text" id="userInput" placeholder="Type or say your command..." />
     <button onclick="sendMessage()">Send</button>
     <button onclick="startVoiceRecognition()">🎙️ Speak</button>
-    <button onclick="exportMacro()">⬇️ Export</button>
   </div>
 
   <script>
     const chatbox = document.getElementById('chatbox');
-    let lastMacro = null;
 
     function appendMessage(sender, text) {
       const msg = document.createElement('div');
@@ -84,16 +82,7 @@
       chatbox.scrollTop = chatbox.scrollHeight;
     }
 
-    function appendJSON(sender, json) {
-      const msg = document.createElement('div');
-      msg.classList.add('message', sender);
-      msg.textContent = `${sender === 'user' ? '🧑‍💻 You' : '🤖 Assistant'}:
-` + JSON.stringify(json, null, 2);
-      chatbox.appendChild(msg);
-      chatbox.scrollTop = chatbox.scrollHeight;
-    }
-
-    function sendMessage(textInput) {
+    async function sendMessage(textInput) {
       const input = document.getElementById('userInput');
       const text = textInput || input.value.trim();
       if (!text) return;
@@ -101,30 +90,19 @@
       appendMessage('user', text);
       input.value = '';
 
-      setTimeout(() => {
-        const macro = {
-          trigger: extractTrigger(text),
-          actions: extractActions(text)
-        };
-        lastMacro = macro;
-        appendJSON('uaacs', macro);
-      }, 500);
-    }
+      try {
+        const res = await fetch('http://localhost:3000/api/macro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: text })
+        });
 
-    function extractTrigger(text) {
-      const match = text.match(/(?:when i say|if i say|triggered by) ['"]?(.*?)['"]?(?:,| then| and|$)/i);
-      return match ? match[1] : "Custom Command";
-    }
-
-    function extractActions(text) {
-      const verbs = ["open", "launch", "switch", "tweet", "mute", "record", "play", "pause", "stop"];
-      const actions = [];
-      verbs.forEach(verb => {
-        const regex = new RegExp(`${verb}[^.,;]+`, 'gi');
-        const matches = text.match(regex);
-        if (matches) actions.push(...matches.map(m => m.trim()));
-      });
-      return actions.length > 0 ? actions : ["Custom action parsed"];
+        if (!res.ok) throw new Error('GPT request failed.');
+        const data = await res.json();
+        appendMessage('uaacs', JSON.stringify(data, null, 2));
+      } catch (err) {
+        appendMessage('uaacs', '❌ Error: ' + err.message);
+      }
     }
 
     function startVoiceRecognition() {
@@ -143,20 +121,6 @@
       };
 
       recognition.start();
-    }
-
-    function exportMacro() {
-      if (!lastMacro) {
-        alert("No macro available to export.");
-        return;
-      }
-      const blob = new Blob([JSON.stringify(lastMacro, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'stream-deck-macro.json';
-      link.click();
-      URL.revokeObjectURL(url);
     }
   </script>
 </body>
